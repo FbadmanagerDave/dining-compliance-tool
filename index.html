@@ -95,10 +95,14 @@
 
     function populateDropdowns() {
       const states = [...new Set(data.map(item => item.State))].sort();
-      const diningTypes = [...new Set(data.map(item['Dining Type']))].sort();
+      const diningTypes = [...new Set(data.map(item => item['Dining Type']))].sort();
 
       const stateSelect = document.getElementById('state-select');
       const diningSelect = document.getElementById('dining-select');
+
+      // Clear existing options except first
+      stateSelect.innerHTML = '<option value="" disabled selected>Select State</option>';
+      diningSelect.innerHTML = '<option value="" disabled selected>Select Dining Type</option>';
 
       states.forEach(state => {
         const option = document.createElement('option');
