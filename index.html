@@ -3,44 +3,139 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dining Compliance Viewer</title>
+  <title>Dining Compliance Tool</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f8f9fa;
-    }
-    h1 {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background-color: #f7f9fc;
       color: #1f2937;
     }
-    pre {
+
+    h1 {
+      font-size: 1.5rem;
+      color: #0f172a;
+      margin-bottom: 1rem;
+    }
+
+    select {
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      width: 100%;
+      max-width: 400px;
+      font-size: 1rem;
+    }
+
+    .output {
+      margin-top: 2rem;
       background: #ffffff;
-      padding: 16px;
-      border-radius: 8px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-      overflow-x: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .checklist {
+      list-style-type: decimal;
+      padding-left: 1.2rem;
+    }
+
+    .tldr {
+      margin-top: 1rem;
+      font-weight: 500;
+      color: #334155;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Dining Compliance Tool (Preview)</h1>
-  <p>This is a preview of the raw data pulled from your Google Sheet:</p>
-  <pre id="output">Loading...</pre>
+  <h1>Dining Compliance Checklist</h1>
+
+  <label for="stateSelect">Select State:</label>
+  <select id="stateSelect">
+    <option value="">-- Search or select state --</option>
+  </select>
+
+  <label for="typeSelect">Select Dining Type:</label>
+  <select id="typeSelect">
+    <option value="">-- Search or select dining type --</option>
+  </select>
+
+  <div id="result" class="output" style="display: none;">
+    <h2>Daily Checklist</h2>
+    <ol class="checklist" id="checklist"></ol>
+    <div class="tldr" id="tldr"></div>
+  </div>
 
   <script>
-    const sheetURL = "https://opensheet.elk.sh/2PACX-1vSLIPbRCK3K9nr2nmypLXpvonmSkpsZyeS_FgPuL5-D5OpDzaVRwHbXTgDQX6x-7TtziSw5heBdHRC6/Sheet1";
+    const SHEET_URL = "https://opensheet.elk.sh/2PACX-1vSLIPbRCK3K9nr2nmypLXpvonmSkpsZyeS_FgPuL5-D5OpDzaVRwHbXTgDQX6x-7TtziSw5heBdHRC6/Sheet1";
 
-    fetch(sheetURL)
+    let data = [];
+
+    const stateSelect = document.getElementById("stateSelect");
+    const typeSelect = document.getElementById("typeSelect");
+    const checklistEl = document.getElementById("checklist");
+    const tldrEl = document.getElementById("tldr");
+    const resultEl = document.getElementById("result");
+
+    fetch(SHEET_URL)
       .then((res) => res.json())
-      .then((data) => {
-        document.getElementById("output").textContent = JSON.stringify(data, null, 2);
-      })
-      .catch((err) => {
-        document.getElementById("output").textContent = "Error loading data.";
-        console.error("Fetch error:", err);
+      .then((json) => {
+        data = json;
+        populateDropdowns();
       });
+
+    function populateDropdowns() {
+      const states = [...new Set(data.map(row => row["State"]).filter(Boolean))].sort();
+      const types = [...new Set(data.map(row => row["Dining Type"]).filter(Boolean))].sort();
+
+      states.forEach(state => {
+        const opt = document.createElement("option");
+        opt.value = state;
+        opt.textContent = state;
+        stateSelect.appendChild(opt);
+      });
+
+      types.forEach(type => {
+        const opt = document.createElement("option");
+        opt.value = type;
+        opt.textContent = type;
+        typeSelect.appendChild(opt);
+      });
+    }
+
+    function updateChecklist() {
+      const state = stateSelect.value;
+      const type = typeSelect.value;
+
+      const match = data.find(row =>
+        row["State"] === state && row["Dining Type"] === type
+      );
+
+      if (match) {
+        checklistEl.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+          const item = match[`Checklist Item ${i}`];
+          if (item) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            checklistEl.appendChild(li);
+          }
+        }
+        tldrEl.textContent = "Summary: " + (match["TLDR Compliance Summary"] || "");
+        resultEl.style.display = 'block';
+      } else {
+        resultEl.style.display = 'none';
+      }
+    }
+
+    stateSelect.addEventListener("change", updateChecklist);
+    typeSelect.addEventListener("change", updateChecklist);
   </script>
 </body>
 </html>
