@@ -33,9 +33,6 @@
       border-radius: 4px;
     }
   </style>
-
-  <!-- Tabletop.js to load Google Sheets data -->
-  <script src="https://cdn.jsdelivr.net/npm/tabletop@1.6.0/src/tabletop.min.js"></script>
 </head>
 <body>
   <h1>Dining Compliance Awareness Tool</h1>
@@ -55,79 +52,81 @@
   <div id="summary"></div>
 
   <script>
-    window.onload = function() {
-      const publicSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSLIPbRCK3K9nr2nmypLXpvonmSkpsZyeS_FgPuL5-D5OpDzaVRwHbXTgDQX6x-7TtziSw5heBdHRC6/pubhtml';
+    const SHEET_URL = "https://opensheet.elk.sh/2PACX-1vSLIPbRCK3K9nr2nmypLXpvonmSkpsZyeS_FgPuL5-D5OpDzaVRwHbXTgDQX6x-7TtziSw5heBdHRC6/Sheet1";
 
-      Tabletop.init({
-        key: publicSpreadsheetUrl,
-        callback: showInfo,
-        simpleSheet: true
+    let data = [];
+
+    async function loadData() {
+      try {
+        const response = await fetch(SHEET_URL);
+        data = await response.json();
+
+        populateDropdowns();
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        document.body.insertAdjacentHTML('beforeend', '<p style="color:red;">Failed to load data. Please try again later.</p>');
+      }
+    }
+
+    function populateDropdowns() {
+      const states = [...new Set(data.map(item => item.State))].sort();
+      const diningTypes = [...new Set(data.map(item => item['Dining Type']))].sort();
+
+      const stateSelect = document.getElementById('state-select');
+      const diningSelect = document.getElementById('dining-select');
+
+      states.forEach(state => {
+        const option = document.createElement('option');
+        option.value = state;
+        option.textContent = state;
+        stateSelect.appendChild(option);
       });
 
-      function showInfo(data, tabletop) {
-        console.log('Data loaded:', data);
+      diningTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        diningSelect.appendChild(option);
+      });
+    }
 
-        // Extract unique states and dining types
-        const states = [...new Set(data.map(item => item.State))].sort();
-        const diningTypes = [...new Set(data.map(item => item['Dining Type']))].sort();
+    function displayChecklist() {
+      const selectedState = document.getElementById('state-select').value;
+      const selectedDining = document.getElementById('dining-select').value;
 
-        // Populate dropdowns
-        const stateSelect = document.getElementById('state-select');
-        const diningSelect = document.getElementById('dining-select');
-
-        states.forEach(state => {
-          const option = document.createElement('option');
-          option.value = state;
-          option.textContent = state;
-          stateSelect.appendChild(option);
-        });
-
-        diningTypes.forEach(type => {
-          const option = document.createElement('option');
-          option.value = type;
-          option.textContent = type;
-          diningSelect.appendChild(option);
-        });
-
-        // Event listener to display checklist and summary
-        function displayChecklist() {
-          const selectedState = stateSelect.value;
-          const selectedDining = diningSelect.value;
-
-          if (!selectedState || !selectedDining) {
-            document.getElementById('checklist').innerHTML = '';
-            document.getElementById('summary').innerHTML = '';
-            return;
-          }
-
-          const filtered = data.filter(item => item.State === selectedState && item['Dining Type'] === selectedDining);
-
-          if (filtered.length === 0) {
-            document.getElementById('checklist').innerHTML = '<p>No data found for this selection.</p>';
-            document.getElementById('summary').innerHTML = '';
-            return;
-          }
-
-          const item = filtered[0];
-
-          // Build checklist HTML
-          let checklistHTML = '<h2>Daily Inspection Checklist</h2><ol>';
-          for (let i = 1; i <= 5; i++) {
-            const key = `Checklist Item ${i}`;
-            if (item[key]) {
-              checklistHTML += `<li>${item[key]}</li>`;
-            }
-          }
-          checklistHTML += '</ol>';
-
-          document.getElementById('checklist').innerHTML = checklistHTML;
-          document.getElementById('summary').innerHTML = `<strong>TLDR Compliance Summary:</strong><p>${item['TLDR Compliance Summary']}</p>`;
-        }
-
-        stateSelect.addEventListener('change', displayChecklist);
-        diningSelect.addEventListener('change', displayChecklist);
+      if (!selectedState || !selectedDining) {
+        document.getElementById('checklist').innerHTML = '';
+        document.getElementById('summary').innerHTML = '';
+        return;
       }
-    };
+
+      const filtered = data.filter(item => item.State === selectedState && item['Dining Type'] === selectedDining);
+
+      if (filtered.length === 0) {
+        document.getElementById('checklist').innerHTML = '<p>No data found for this selection.</p>';
+        document.getElementById('summary').innerHTML = '';
+        return;
+      }
+
+      const item = filtered[0];
+
+      let checklistHTML = '<h2>Daily Inspection Checklist</h2><ol>';
+      for (let i = 1; i <= 5; i++) {
+        const key = `Checklist Item ${i}`;
+        if (item[key]) {
+          checklistHTML += `<li>${item[key]}</li>`;
+        }
+      }
+      checklistHTML += '</ol>';
+
+      document.getElementById('checklist').innerHTML = checklistHTML;
+      document.getElementById('summary').innerHTML = `<strong>TLDR Compliance Summary:</strong><p>${item['TLDR Compliance Summary']}</p>`;
+    }
+
+    document.getElementById('state-select').addEventListener('change', displayChecklist);
+    document.getElementById('dining-select').addEventListener('change', displayChecklist);
+
+    loadData();
   </script>
 </body>
 </html>
