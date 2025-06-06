@@ -2,140 +2,132 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dining Compliance Tool</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 2rem;
-      background-color: #f7f9fc;
-      color: #1f2937;
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #f9f9f9;
+      color: #333;
     }
-
-    h1 {
-      font-size: 1.5rem;
-      color: #0f172a;
-      margin-bottom: 1rem;
-    }
-
     select {
-      padding: 0.5rem;
-      margin: 0.5rem 0;
       width: 100%;
-      max-width: 400px;
+      padding: 0.5rem;
+      margin: 0.5rem 0 1rem 0;
       font-size: 1rem;
     }
-
-    .output {
-      margin-top: 2rem;
-      background: #ffffff;
-      border-radius: 0.5rem;
+    ol {
+      background: #fff;
+      padding: 1rem 1.5rem;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgb(0 0 0 / 0.1);
+    }
+    #summary {
+      background: #e3f2fd;
       padding: 1rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .checklist {
-      list-style-type: decimal;
-      padding-left: 1.2rem;
-    }
-
-    .tldr {
+      border-left: 5px solid #2196f3;
       margin-top: 1rem;
-      font-weight: 500;
-      color: #334155;
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 1rem;
-      }
+      border-radius: 4px;
     }
   </style>
+
+  <!-- Tabletop.js to load Google Sheets data -->
+  <script src="https://cdn.jsdelivr.net/npm/tabletop@1.6.0/src/tabletop.min.js"></script>
 </head>
 <body>
-  <h1>Dining Compliance Checklist</h1>
+  <h1>Dining Compliance Awareness Tool</h1>
 
-  <label for="stateSelect">Select State:</label>
-  <select id="stateSelect">
-    <option value="">-- Search or select state --</option>
+  <label for="state-select">Select State</label>
+  <select id="state-select">
+    <option value="" disabled selected>Select State</option>
   </select>
 
-  <label for="typeSelect">Select Dining Type:</label>
-  <select id="typeSelect">
-    <option value="">-- Search or select dining type --</option>
+  <label for="dining-select">Select Dining Type</label>
+  <select id="dining-select">
+    <option value="" disabled selected>Select Dining Type</option>
   </select>
 
-  <div id="result" class="output" style="display: none;">
-    <h2>Daily Checklist</h2>
-    <ol class="checklist" id="checklist"></ol>
-    <div class="tldr" id="tldr"></div>
-  </div>
+  <div id="checklist"></div>
+
+  <div id="summary"></div>
 
   <script>
-    const SHEET_URL = "https://opensheet.elk.sh/2PACX-1vSLIPbRCK3K9nr2nmypLXpvonmSkpsZyeS_FgPuL5-D5OpDzaVRwHbXTgDQX6x-7TtziSw5heBdHRC6/Sheet1";
+    window.onload = function() {
+      const publicSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSLIPbRCK3K9nr2nmypLXpvonmSkpsZyeS_FgPuL5-D5OpDzaVRwHbXTgDQX6x-7TtziSw5heBdHRC6/pubhtml';
 
-    let data = [];
-
-    const stateSelect = document.getElementById("stateSelect");
-    const typeSelect = document.getElementById("typeSelect");
-    const checklistEl = document.getElementById("checklist");
-    const tldrEl = document.getElementById("tldr");
-    const resultEl = document.getElementById("result");
-
-    fetch(SHEET_URL)
-      .then((res) => res.json())
-      .then((json) => {
-        data = json;
-        populateDropdowns();
+      Tabletop.init({
+        key: publicSpreadsheetUrl,
+        callback: showInfo,
+        simpleSheet: true
       });
 
-    function populateDropdowns() {
-      const states = [...new Set(data.map(row => row["State"]).filter(Boolean))].sort();
-      const types = [...new Set(data.map(row => row["Dining Type"]).filter(Boolean))].sort();
+      function showInfo(data, tabletop) {
+        console.log('Data loaded:', data);
 
-      states.forEach(state => {
-        const opt = document.createElement("option");
-        opt.value = state;
-        opt.textContent = state;
-        stateSelect.appendChild(opt);
-      });
+        // Extract unique states and dining types
+        const states = [...new Set(data.map(item => item.State))].sort();
+        const diningTypes = [...new Set(data.map(item => item['Dining Type']))].sort();
 
-      types.forEach(type => {
-        const opt = document.createElement("option");
-        opt.value = type;
-        opt.textContent = type;
-        typeSelect.appendChild(opt);
-      });
-    }
+        // Populate dropdowns
+        const stateSelect = document.getElementById('state-select');
+        const diningSelect = document.getElementById('dining-select');
 
-    function updateChecklist() {
-      const state = stateSelect.value;
-      const type = typeSelect.value;
+        states.forEach(state => {
+          const option = document.createElement('option');
+          option.value = state;
+          option.textContent = state;
+          stateSelect.appendChild(option);
+        });
 
-      const match = data.find(row =>
-        row["State"] === state && row["Dining Type"] === type
-      );
+        diningTypes.forEach(type => {
+          const option = document.createElement('option');
+          option.value = type;
+          option.textContent = type;
+          diningSelect.appendChild(option);
+        });
 
-      if (match) {
-        checklistEl.innerHTML = '';
-        for (let i = 1; i <= 5; i++) {
-          const item = match[`Checklist Item ${i}`];
-          if (item) {
-            const li = document.createElement("li");
-            li.textContent = item;
-            checklistEl.appendChild(li);
+        // Event listener to display checklist and summary
+        function displayChecklist() {
+          const selectedState = stateSelect.value;
+          const selectedDining = diningSelect.value;
+
+          if (!selectedState || !selectedDining) {
+            document.getElementById('checklist').innerHTML = '';
+            document.getElementById('summary').innerHTML = '';
+            return;
           }
-        }
-        tldrEl.textContent = "Summary: " + (match["TLDR Compliance Summary"] || "");
-        resultEl.style.display = 'block';
-      } else {
-        resultEl.style.display = 'none';
-      }
-    }
 
-    stateSelect.addEventListener("change", updateChecklist);
-    typeSelect.addEventListener("change", updateChecklist);
+          const filtered = data.filter(item => item.State === selectedState && item['Dining Type'] === selectedDining);
+
+          if (filtered.length === 0) {
+            document.getElementById('checklist').innerHTML = '<p>No data found for this selection.</p>';
+            document.getElementById('summary').innerHTML = '';
+            return;
+          }
+
+          const item = filtered[0];
+
+          // Build checklist HTML
+          let checklistHTML = '<h2>Daily Inspection Checklist</h2><ol>';
+          for (let i = 1; i <= 5; i++) {
+            const key = `Checklist Item ${i}`;
+            if (item[key]) {
+              checklistHTML += `<li>${item[key]}</li>`;
+            }
+          }
+          checklistHTML += '</ol>';
+
+          document.getElementById('checklist').innerHTML = checklistHTML;
+          document.getElementById('summary').innerHTML = `<strong>TLDR Compliance Summary:</strong><p>${item['TLDR Compliance Summary']}</p>`;
+        }
+
+        stateSelect.addEventListener('change', displayChecklist);
+        diningSelect.addEventListener('change', displayChecklist);
+      }
+    };
   </script>
 </body>
 </html>
