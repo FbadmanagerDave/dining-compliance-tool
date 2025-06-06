@@ -32,6 +32,32 @@
       margin-top: 1rem;
       border-radius: 4px;
     }
+    textarea {
+      margin-top: 0.25rem;
+      font-size: 0.9rem;
+      padding: 0.5rem;
+      resize: vertical;
+    }
+    #progress {
+      font-weight: bold;
+      margin: 0.5rem 0;
+    }
+    #last-updated {
+      font-size: 0.85rem;
+      color: #555;
+      margin-top: 0.5rem;
+    }
+    button {
+      background-color: #f44336;
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #d32f2f;
+    }
   </style>
 </head>
 <body>
@@ -60,7 +86,6 @@
       try {
         const response = await fetch(SHEET_URL);
         data = await response.json();
-
         populateDropdowns();
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -70,7 +95,7 @@
 
     function populateDropdowns() {
       const states = [...new Set(data.map(item => item.State))].sort();
-      const diningTypes = [...new Set(data.map(item => item['Dining Type']))].sort();
+      const diningTypes = [...new Set(data.map(item['Dining Type']))].sort();
 
       const stateSelect = document.getElementById('state-select');
       const diningSelect = document.getElementById('dining-select');
@@ -88,6 +113,10 @@
         option.textContent = type;
         diningSelect.appendChild(option);
       });
+    }
+
+    function getStorageKey(state, type) {
+      return `checklist_progress_${state}_${type}`;
     }
 
     function displayChecklist() {
@@ -109,18 +138,91 @@
       }
 
       const item = filtered[0];
+      const checklistKey = getStorageKey(selectedState, selectedDining);
+      const savedProgress = JSON.parse(localStorage.getItem(checklistKey) || '{}');
 
-      let checklistHTML = '<h2>Daily Inspection Checklist</h2><ol>';
+      let checklistHTML = `
+        <h2>Daily Inspection Checklist</h2>
+        <div id="progress"></div>
+        <button id="resetChecklist" style="margin-top: 0.5rem; margin-bottom: 1rem;">Reset Checklist</button>
+        <ol>
+      `;
+
+      let checkedCount = 0;
       for (let i = 1; i <= 5; i++) {
         const key = `Checklist Item ${i}`;
         if (item[key]) {
-          checklistHTML += `<li>${item[key]}</li>`;
+          const isChecked = savedProgress[`item${i}`]?.checked || false;
+          const note = savedProgress[`item${i}`]?.note || '';
+          if (isChecked) checkedCount++;
+
+          checklistHTML += `
+            <li>
+              <label>
+                <input type="checkbox" data-index="${i}" ${isChecked ? 'checked' : ''}>
+                ${item[key]}
+              </label><br/>
+              <textarea placeholder="Add notes..." data-note-index="${i}" style="width: 100%; margin-top: 4px;">${note}</textarea>
+            </li>
+          `;
         }
       }
-      checklistHTML += '</ol>';
 
+      checklistHTML += `</ol><div id="last-updated"></div>`;
       document.getElementById('checklist').innerHTML = checklistHTML;
+      updateProgressDisplay(checkedCount);
+
+      document.querySelectorAll('input[type="checkbox"]').forEach(box =>
+        box.addEventListener('change', () => saveChecklistState(selectedState, selectedDining))
+      );
+      document.querySelectorAll('textarea').forEach(note =>
+        note.addEventListener('input', () => saveChecklistState(selectedState, selectedDining))
+      );
+      document.getElementById('resetChecklist').addEventListener('click', () => resetChecklist(selectedState, selectedDining));
+
       document.getElementById('summary').innerHTML = `<strong>TLDR Compliance Summary:</strong><p>${item['TLDR Compliance Summary']}</p>`;
+
+      updateLastUpdatedDisplay(savedProgress.timestamp);
+    }
+
+    function saveChecklistState(state, type) {
+      const progress = {};
+      let checkedCount = 0;
+
+      document.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        const i = input.dataset.index;
+        progress[`item${i}`] = progress[`item${i}`] || {};
+        progress[`item${i}`].checked = input.checked;
+        if (input.checked) checkedCount++;
+      });
+
+      document.querySelectorAll('textarea').forEach(textarea => {
+        const i = textarea.dataset.noteIndex;
+        progress[`item${i}`] = progress[`item${i}`] || {};
+        progress[`item${i}`].note = textarea.value;
+      });
+
+      const timestamp = new Date().toLocaleString();
+      progress.timestamp = timestamp;
+
+      localStorage.setItem(getStorageKey(state, type), JSON.stringify(progress));
+      updateProgressDisplay(checkedCount);
+      updateLastUpdatedDisplay(timestamp);
+    }
+
+    function updateProgressDisplay(count) {
+      const total = document.querySelectorAll('input[type="checkbox"]').length;
+      document.getElementById('progress').textContent = `✅ ${count} of ${total} items completed`;
+    }
+
+    function updateLastUpdatedDisplay(timestamp) {
+      const display = timestamp ? `🕒 Last updated: ${timestamp}` : '';
+      document.getElementById('last-updated').textContent = display;
+    }
+
+    function resetChecklist(state, type) {
+      localStorage.removeItem(getStorageKey(state, type));
+      displayChecklist(); // re-render
     }
 
     document.getElementById('state-select').addEventListener('change', displayChecklist);
